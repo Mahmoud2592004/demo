@@ -1,0 +1,7 @@
+# Ignore all Excel files
+*.xlsx
+*.xls
+
+# But keep Excel files in the output folder
+!output/*.xlsx
+!output/*.xls
