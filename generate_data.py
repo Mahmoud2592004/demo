@@ -483,7 +483,7 @@ def process_prescriptions(input_file, drug_db_file):
                 "drugs": json.dumps(drugs, ensure_ascii=False),
                 "doctor_name": doctor_name or "Not detected",
                 "timestamp": timestamp.strftime("%Y-%m-%d"),
-                "image_path": dest_image_path
+                "image_path": os.path.join("organized_images", gov_folder, city_folder, image_name) 
             })
             
             if doctor_name and doctor_name != "Not detected":

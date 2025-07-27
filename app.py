@@ -75,7 +75,7 @@ def load_data():
         
         # Update image paths to be absolute
         df['image_path'] = df['image_path'].apply(
-            lambda x: os.path.join(SCRIPT_DIR, x) if isinstance(x, str) and not os.path.isabs(x) else x
+            lambda x: os.path.join(SCRIPT_DIR, x) if isinstance(x, str) else x
         )
         
         # Filter to only include prescriptions with valid images
@@ -95,7 +95,22 @@ def load_data():
         st.error(f"Error loading data: {e}")
         st.stop()
 
+def debug_image_paths(df):
+    st.write("### Path Diagnostics")
+    st.write(f"Script directory: {SCRIPT_DIR}")
+    
+    sample = df.head(3).copy()
+    sample["exists"] = sample["image_path"].apply(os.path.exists)
+    
+    st.dataframe(sample[["prescription_id", "image_path", "exists"]])
+    
+    if not sample["exists"].all():
+        st.error("Some images are missing. Verify paths:")
+        st.code(f"Current directory contents: {os.listdir(SCRIPT_DIR)}")
+        st.code(f"organized_images contents: {os.listdir(os.path.join(SCRIPT_DIR, 'organized_images'))}")
+
 df = load_data()
+debug_image_paths(df)
 
 # Sidebar filters
 st.sidebar.header("Filters")
