@@ -17,7 +17,7 @@ ORGANIZED_IMAGES_DIR = os.path.join(SCRIPT_DIR, "organized_images")
 # Configure page
 st.set_page_config(layout="wide", page_title="Egypt Prescription Analytics")
 
-# Custom CSS for elegant styling
+# Custom CSS for elegant styling with white details tile and white text
 st.markdown("""
     <style>
     .card {
@@ -39,7 +39,7 @@ st.markdown("""
     }
     .prescription-detail {
         font-size: 14px;
-        color: #34495e;
+        color: #ffffff;
         margin: 5px 0;
     }
     .drug-confirmed {
@@ -53,6 +53,7 @@ st.markdown("""
     .st-expander {
         border: 1px solid #e0e0e0;
         border-radius: 8px;
+        background-color: #ffffff;
     }
     .stPlotlyChart {
         margin-top: 20px;
@@ -110,7 +111,7 @@ def debug_image_paths(df):
         st.code(f"organized_images contents: {os.listdir(os.path.join(SCRIPT_DIR, 'organized_images'))}")
 
 df = load_data()
-debug_image_paths(df)
+# debug_image_paths(df)
 
 # Sidebar filters
 st.sidebar.header("Filters")
@@ -188,34 +189,34 @@ col3.metric("Confirmed Drugs", confirmed_drugs, f"{confirmed_drugs/total_drugs*1
 col4.metric("Detected Drugs", detected_drugs, f"{detection_rate:.1f}%" if total_drugs > 0 else "0%")
 
 # Doctor Insights
-st.subheader("Doctor Insights")
-if not filtered_df.empty:
-    doctor_counts = filtered_df['doctor_name'].value_counts().reset_index()
-    doctor_counts.columns = ['Doctor', 'Prescription Count']
+# st.subheader("Doctor Insights")
+# if not filtered_df.empty:
+#     doctor_counts = filtered_df['doctor_name'].value_counts().reset_index()
+#     doctor_counts.columns = ['Doctor', 'Prescription Count']
     
-    if not show_no_doctor:
-        doctor_counts = doctor_counts[doctor_counts['Doctor'] != "Not detected"]
+#     if not show_no_doctor:
+#         doctor_counts = doctor_counts[doctor_counts['Doctor'] != "Not detected"]
     
-    if not doctor_counts.empty:
-        col1, col2 = st.columns(2)
+#     if not doctor_counts.empty:
+#         col1, col2 = st.columns(2)
         
-        with col1:
-            top_doctor = doctor_counts.iloc[0]['Doctor'] if len(doctor_counts) > 0 else "N/A"
-            st.metric("Top Doctor", top_doctor)
+#         with col1:
+#             top_doctor = doctor_counts.iloc[0]['Doctor'] if len(doctor_counts) > 0 else "N/A"
+#             st.metric("Top Doctor", top_doctor)
         
-        with col2:
-            st.metric("Unique Doctors", len(doctor_counts))
+#         with col2:
+#             st.metric("Unique Doctors", len(doctor_counts))
         
-        fig_doctor = px.bar(
-            doctor_counts.head(10), 
-            x='Doctor', y='Prescription Count',
-            title="Top 10 Doctors by Prescription Count"
-        )
-        st.plotly_chart(fig_doctor, use_container_width=True)
-    else:
-        st.info("No doctor data available for the selected filters.")
-else:
-    st.warning("No data available for the selected filters.")
+#         fig_doctor = px.bar(
+#             doctor_counts.head(10), 
+#             x='Doctor', y='Prescription Count',
+#             title="Top 10 Doctors by Prescription Count"
+#         )
+#         st.plotly_chart(fig_doctor, use_container_width=True)
+#     else:
+#         st.info("No doctor data available for the selected filters.")
+# else:
+#     st.warning("No data available for the selected filters.")
 
 # Elegant Prescription Gallery
 if not filtered_df.empty:
@@ -245,7 +246,7 @@ if not filtered_df.empty:
                         st.warning(f"No valid image for prescription {row['prescription_id']}")
                 
                 with col2:
-                    with st.expander("View Details"):
+                    with st.expander("View Details", expanded=True):
                         st.markdown(f'<div class="prescription-detail">🩺 <b>Doctor:</b> {row["doctor_name"]}</div>', unsafe_allow_html=True)
                         st.markdown(f'<div class="prescription-detail">🏥 <b>Pharmacy:</b> {row["pharmacy"]}</div>', unsafe_allow_html=True)
                         st.markdown('<div class="prescription-detail">💊 <b>Drugs:</b></div>', unsafe_allow_html=True)

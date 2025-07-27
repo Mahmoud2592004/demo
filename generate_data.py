@@ -27,7 +27,7 @@ OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
 
 # Configuration
 random.seed(42)
-THRESHOLD = 70
+THRESHOLD = 80
 START_DATE = datetime(2025, 7, 1)
 END_DATE = datetime(2025, 7, 27)
 DATE_RANGE = (END_DATE - START_DATE).days
@@ -71,26 +71,49 @@ PHARMACIES = [
 class MedicineMatcher:
     def __init__(self, drug_list):
         self.drug_list = drug_list
+        # Create a dictionary mapping first words to full drug names
+        self.first_word_map = {}
+        for drug in drug_list:
+            first_word = drug.split()[0].lower() if drug else ""
+            if first_word not in self.first_word_map:
+                self.first_word_map[first_word] = []
+            self.first_word_map[first_word].append(drug)
     
     def get_top_matches(self, query, topN=3):
-        query_lower = query.lower()
-        exact_matches = [drug for drug in self.drug_list if query_lower in drug.lower()]
+        # Extract first word from query
+        query_first_word = query.split()[0].lower() if query else ""
+        
+        # Find exact first word matches
+        exact_matches = self.first_word_map.get(query_first_word, [])
         if exact_matches:
             return [{"name": match, "score": 100.0} for match in exact_matches[:topN]]
         
+        # If no exact first word match, use fuzzy matching on first words only
+        first_words = list(self.first_word_map.keys())
         results = process.extract(
-            query, 
-            self.drug_list, 
+            query_first_word, 
+            first_words, 
             scorer=fuzz.token_sort_ratio, 
             limit=topN * 5
         )
         
-        filtered = [res for res in results if res[1] >= THRESHOLD]
+        # Process results - each result is (word, score, index)
+        filtered = []
+        for result in results:
+            word, score, _ = result  # Unpack all three values
+            if score >= THRESHOLD:
+                filtered.append((word, score))
+        
         if not filtered:
             return []
         
-        filtered.sort(key=lambda x: x[1], reverse=True)
-        return [{"name": result[0], "score": result[1]} for result in filtered[:topN]]
+        # Get full drug names for matched first words
+        matched_drugs = []
+        for word, score in filtered:
+            matched_drugs.extend([(drug, score) for drug in self.first_word_map[word]])
+        
+        matched_drugs.sort(key=lambda x: x[1], reverse=True)
+        return [{"name": drug, "score": score} for drug, score in matched_drugs[:topN]]
     
     @staticmethod
     def clean_text(text):
@@ -253,31 +276,35 @@ def extract_doctor_name(text):
         return None
         
     text = unicodedata.normalize('NFC', text)
+    lines = text.split('\n')
     
     arabic_patterns = [
-        r'(دكتور|الدكتور|د\.|د)\s*([^\n]+?)(?=\n|$|\.|,)',
+        r'(دكتور|الدكتور|د\.|د)\s*([^\n]+?)?(?=\n|$|\.|,)',
         r'(دكتور|الدكتور|د\.|د)\s*([^\n]+)'
     ]
     
     english_patterns = [
-        r'(dr\.?|doctor)\s*([^\n]+?)(?=\n|$|\.|,)',
+        r'(dr\.?|doctor)\s*([^\n]+?)?(?=\n|$|\.|,)',
         r'(dr\.?|doctor)\s*([^\n]+)'
     ]
     
-    for pattern in arabic_patterns:
-        match = re.search(pattern, text)
-        if match:
-            name = match.group(2).strip()
-            name = re.sub(r'[^\w\s\u0600-\u06FF]+$', '', name)
-            return name
+    for i, line in enumerate(lines):
+        for pattern in arabic_patterns + english_patterns:
+            match = re.search(pattern, line, re.IGNORECASE if pattern in english_patterns else 0)
+            if match:
+                name = match.group(2).strip() if match.group(2) else ""
+                # If no valid name on the same line, check the next line
+                if not name or name.isspace():
+                    if i + 1 < len(lines):
+                        next_line = lines[i + 1].strip()
+                        next_line = re.sub(r'[^\w\s\u0600-\u06FF]+$', '', next_line)
+                        if next_line and not next_line.isspace():
+                            return next_line
+                else:
+                    name = re.sub(r'[^\w\s\u0600-\u06FF]+$', '', name)
+                    if name and not name.isspace():
+                        return name
     
-    for pattern in english_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            name = match.group(2).strip()
-            name = re.sub(r'[^\w\s]+$', '', name)
-            return name
-            
     return None
 
 def extract_text_from_field(field_data):
@@ -346,22 +373,18 @@ def process_prescriptions(input_file, drug_db_file):
             image_to_record[image_name] = row
         
         # Download images if they don't exist
+        # Get all images from raw_images folder
         image_paths = []
-        for idx, row in df.iterrows():
-            image_url = row.get('imageUrl', '')
-            if not image_url:
-                continue
-            decoded_url = unquote(image_url)
-            image_name = os.path.basename(decoded_url).split('?')[0].lower().strip()
-            dest_path = os.path.join(RAW_IMAGES_DIR, image_name)
-            if not os.path.exists(dest_path):
-                if download_image(image_url, dest_path):
-                    image_paths.append(dest_path)
-                else:
-                    print(f"Skipping image {image_name}: Failed to download")
-                    continue
-            else:
-                image_paths.append(dest_path)
+        for root, _, files in os.walk(RAW_IMAGES_DIR):
+            for file in files:
+                if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    image_paths.append(os.path.join(root, file))
+
+        if not image_paths:
+            print(f"No images found in {RAW_IMAGES_DIR}")
+            return pd.DataFrame()
+
+        print(f"Found {len(image_paths)} images in {RAW_IMAGES_DIR}")
         
         if not image_paths:
             print("No images found or downloaded in raw_images")
