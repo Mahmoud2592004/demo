@@ -9,6 +9,11 @@ import numpy as np
 from mlxtend.frequent_patterns import apriori, association_rules
 import plotly.graph_objects as go
 
+# Get script directory for absolute paths
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
+ORGANIZED_IMAGES_DIR = os.path.join(SCRIPT_DIR, "organized_images")
+
 # Configure page
 st.set_page_config(layout="wide", page_title="Egypt Prescription Analytics")
 
@@ -58,13 +63,20 @@ st.markdown("""
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_excel("output/processed_prescriptions.xlsx")
+        data_path = os.path.join(OUTPUT_DIR, "processed_prescriptions.xlsx")
+        df = pd.read_excel(data_path)
+        
         # Convert timestamp to datetime
         if not pd.api.types.is_datetime64_any_dtype(df['timestamp']):
             df['timestamp'] = pd.to_datetime(df['timestamp'])
         
         # Parse drugs JSON
         df['drugs_parsed'] = df['drugs'].apply(lambda x: json.loads(x) if isinstance(x, str) and x.strip() != '' else [])
+        
+        # Update image paths to be absolute
+        df['image_path'] = df['image_path'].apply(
+            lambda x: os.path.join(SCRIPT_DIR, x) if isinstance(x, str) and not os.path.isabs(x) else x
+        )
         
         # Filter to only include prescriptions with valid images
         df = df[df['image_path'].apply(
@@ -77,7 +89,7 @@ def load_data():
         
         return df
     except FileNotFoundError:
-        st.error("Data file 'output/processed_prescriptions.xlsx' not found. Please run process_prescriptions_reversed_fixed.py first.")
+        st.error("Data file not found. Please run the processing script first.")
         st.stop()
     except Exception as e:
         st.error(f"Error loading data: {e}")
