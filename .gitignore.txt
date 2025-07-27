@@ -1,6 +1,5 @@
 # Ignore all Excel files
-*.xlsx
-*.xls
+search engine MedDigi.xlsx
 
 # But keep Excel files in the output folder
 !output/*.xlsx
